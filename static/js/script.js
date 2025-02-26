@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.addEventListener('click', () => {
                     const time = parseFloat(btn.dataset.time);
                     // Send message to YouTube iframe to seek to timestamp
-                    if (window.player) {
+                    if (window.player && window.player.seekTo) {
                         window.player.seekTo(time);
                         window.player.playVideo();
                     }
@@ -78,9 +78,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(data.error || 'Failed to fetch transcript');
             }
 
-            // Load YouTube player if not already loaded
-            if (!window.player) {
-                const videoId = new URL(url).searchParams.get('v') || url.split('/').pop().split('?')[0];
+            // Extract video ID from URL
+            let videoId;
+            try {
+                const urlObj = new URL(url);
+                if (url.includes('youtube.com')) {
+                    videoId = urlObj.searchParams.get('v');
+                } else if (url.includes('youtu.be')) {
+                    videoId = urlObj.pathname.slice(1);
+                }
+            } catch (e) {
+                console.error('Error parsing URL:', e);
+                videoId = url.split('/').pop().split('?')[0];
+            }
+
+            // Reinitialize player with new video
+            if (videoId) {
+                if (window.player) {
+                    window.player.destroy();
+                }
                 loadYouTubePlayer(videoId);
             }
 
@@ -122,16 +138,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // YouTube Player API integration
+    window.onYouTubeIframeAPIReady = function() {
+        console.log('YouTube API Ready');
+    };
+
     function loadYouTubePlayer(videoId) {
+        if (!videoId) {
+            console.error('No video ID provided');
+            return;
+        }
+
         if (!window.YT) {
             const tag = document.createElement('script');
             tag.src = 'https://www.youtube.com/iframe_api';
             const firstScriptTag = document.getElementsByTagName('script')[0];
             firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-            window.onYouTubeIframeAPIReady = () => {
-                createPlayer(videoId);
-            };
         } else {
             createPlayer(videoId);
         }
@@ -143,8 +164,22 @@ document.addEventListener('DOMContentLoaded', function() {
             width: '640',
             videoId: videoId,
             playerVars: {
-                'playsinline': 1
+                'playsinline': 1,
+                'enablejsapi': 1
+            },
+            events: {
+                'onReady': onPlayerReady,
+                'onError': onPlayerError
             }
         });
+    }
+
+    function onPlayerReady(event) {
+        console.log('Player ready');
+    }
+
+    function onPlayerError(event) {
+        console.error('Player error:', event.data);
+        showError('Error loading YouTube video');
     }
 });
