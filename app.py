@@ -1,5 +1,6 @@
 import os
 import re
+import json
 from urllib.parse import urlparse, parse_qs
 from flask import Flask, render_template, request, jsonify, send_file
 import youtube_transcript_api
@@ -158,28 +159,110 @@ def get_transcript():
 @app.route('/download-transcript', methods=['POST'])
 def download_transcript():
     try:
-        transcript = request.form.get('transcript', '')
-        if not transcript:
+        transcript_data = request.form.get('transcript_data', '')  # Get raw transcript data
+        format_type = request.form.get('format', 'txt')  # Default to txt if not specified
+
+        if not transcript_data:
             logger.warning("No transcript provided for download")
             return jsonify({'error': 'No transcript to download'}), 400
 
-        # Create a text file in memory
-        buffer = io.StringIO()
-        buffer.write(transcript)
-        buffer.seek(0)
+        try:
+            # Parse the transcript data from JSON string
+            transcript_entries = json.loads(transcript_data)
+        except json.JSONDecodeError:
+            # If not JSON, treat as plain text
+            transcript_entries = None
+
+        if transcript_entries and isinstance(transcript_entries, list):
+            # Generate formatted content based on the requested format
+            if format_type == 'srt':
+                content = generate_srt(transcript_entries)
+                filename = 'transcript.srt'
+            elif format_type == 'vtt':
+                content = generate_vtt(transcript_entries)
+                filename = 'transcript.vtt'
+            else:  # Default to plain text
+                content = generate_txt(transcript_entries)
+                filename = 'transcript.txt'
+        else:
+            # Fallback to plain text if transcript_data is not in the expected format
+            content = transcript_data
+            filename = 'transcript.txt'
 
         # Convert to bytes for sending
         bytes_io = io.BytesIO()
-        bytes_io.write(buffer.getvalue().encode('utf-8'))
+        bytes_io.write(content.encode('utf-8'))
         bytes_io.seek(0)
 
-        logger.info("Sending transcript file for download")
+        logger.info(f"Sending transcript file for download in {format_type} format")
         return send_file(
             bytes_io,
             mimetype='text/plain',
             as_attachment=True,
-            download_name='transcript.txt'
+            download_name=filename
         )
     except Exception as e:
         logger.error(f"Error downloading transcript: {str(e)}")
         return jsonify({'error': 'Failed to download transcript'}), 500
+
+def generate_srt(transcript_entries):
+    """Generate SRT format from transcript entries."""
+    srt_content = []
+    for i, entry in enumerate(transcript_entries, 1):
+        start_time = format_timestamp_srt(entry['start'])
+        # Calculate end time from start time of next entry or duration
+        if i < len(transcript_entries):
+            end_time = format_timestamp_srt(transcript_entries[i]['start'])
+        else:
+            end_time = format_timestamp_srt(entry['start'] + entry.get('duration', 3))
+
+        srt_content.extend([
+            str(i),
+            f"{start_time} --> {end_time}",
+            entry['text'].strip(),
+            ""  # Empty line between entries
+        ])
+    return '\n'.join(srt_content)
+
+def generate_vtt(transcript_entries):
+    """Generate VTT format from transcript entries."""
+    vtt_content = ["WEBVTT", ""]  # VTT header
+    for i, entry in enumerate(transcript_entries):
+        start_time = format_timestamp_vtt(entry['start'])
+        # Calculate end time from start time of next entry or duration
+        if i < len(transcript_entries) - 1:
+            end_time = format_timestamp_vtt(transcript_entries[i + 1]['start'])
+        else:
+            end_time = format_timestamp_vtt(entry['start'] + entry.get('duration', 3))
+
+        vtt_content.extend([
+            f"{start_time} --> {end_time}",
+            entry['text'].strip(),
+            ""  # Empty line between entries
+        ])
+    return '\n'.join(vtt_content)
+
+def generate_txt(transcript_entries):
+    """Generate plain text format from transcript entries."""
+    txt_content = []
+    for entry in transcript_entries:
+        minutes = int(entry['start'] // 60)
+        seconds = int(entry['start'] % 60)
+        txt_content.append(f"[{minutes:02d}:{seconds:02d}] {entry['text'].strip()}")
+    return '\n'.join(txt_content)
+
+def format_timestamp_srt(seconds):
+    """Format timestamp for SRT format (HH:MM:SS,mmm)."""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds * 1000) % 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+def format_timestamp_vtt(seconds):
+    """Format timestamp for VTT format (HH:MM:SS.mmm)."""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds * 1000) % 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"

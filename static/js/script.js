@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const nextMatch = document.getElementById('nextMatch');
     let currentMatchIndex = -1;
     let matches = [];
+    let currentTranscriptData = null;
 
     function showLoading() {
         loading.classList.remove('d-none');
@@ -48,6 +49,9 @@ document.addEventListener('DOMContentLoaded', function() {
         loading.classList.add('d-none');
         error.classList.add('d-none');
         transcriptContainer.classList.remove('d-none');
+
+        // Store the raw transcript data for downloads
+        currentTranscriptData = transcript;
 
         // Show current language
         if (language) {
@@ -242,35 +246,40 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    downloadBtn.addEventListener('click', async function() {
-        const transcript = transcriptText.textContent;
-        if (!transcript) return;
 
-        const formData = new FormData();
-        formData.append('transcript', transcript);
+    // Update download handling
+    document.querySelectorAll('.dropdown-menu .dropdown-item').forEach(item => {
+        item.addEventListener('click', async function() {
+            const format = this.dataset.format;
+            if (!currentTranscriptData) return;
 
-        try {
-            const response = await fetch('/download-transcript', {
-                method: 'POST',
-                body: formData
-            });
+            const formData = new FormData();
+            formData.append('transcript_data', JSON.stringify(currentTranscriptData));
+            formData.append('format', format);
 
-            if (!response.ok) {
-                throw new Error('Failed to download transcript');
+            try {
+                const response = await fetch('/download-transcript', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to download transcript');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `transcript.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (err) {
+                showError(err.message);
             }
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'transcript.txt';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        } catch (err) {
-            showError(err.message);
-        }
+        });
     });
 
     // YouTube Player API integration

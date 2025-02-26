@@ -61,9 +61,16 @@
                                     <h3 class="mb-0">Transcript</h3>
                                     <small id="currentLanguage" class="text-muted"></small>
                                 </div>
-                                <button id="downloadBtn" class="btn btn-secondary">
-                                    <i class="fa fa-download"></i> Download
-                                </button>
+                                <div class="btn-group">
+                                    <button class="btn btn-secondary dropdown-toggle" type="button" id="downloadBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fa fa-download"></i> Download
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><button class="dropdown-item" data-format="txt">Plain Text (.txt)</button></li>
+                                        <li><button class="dropdown-item" data-format="srt">SubRip (.srt)</button></li>
+                                        <li><button class="dropdown-item" data-format="vtt">WebVTT (.vtt)</button></li>
+                                    </ul>
+                                </div>
                             </div>
                             <!-- Add search box -->
                             <div class="mb-3">
