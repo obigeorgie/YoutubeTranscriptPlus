@@ -65,3 +65,27 @@ pre {
     border-radius: 10px;
     overflow: hidden;
 }
+
+/* Search highlight styles */
+.search-highlight {
+    background-color: rgba(255, 193, 7, 0.3);
+    border-radius: 2px;
+}
+
+.search-highlight.active {
+    background-color: rgba(255, 193, 7, 0.6);
+}
+
+/* Search navigation buttons */
+#prevMatch, #nextMatch {
+    color: var(--bs-info);
+    text-decoration: none;
+}
+
+#prevMatch:hover, #nextMatch:hover {
+    color: var(--bs-info-text);
+}
+
+#searchStats {
+    color: var(--bs-secondary-text);
+}

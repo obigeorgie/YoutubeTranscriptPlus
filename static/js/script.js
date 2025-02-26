@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const languageSelect = document.getElementById('language');
     const currentLanguage = document.getElementById('currentLanguage');
     let currentVideoUrl = '';
+    const searchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+    const searchStats = document.getElementById('searchStats');
+    const matchCount = document.getElementById('matchCount');
+    const prevMatch = document.getElementById('prevMatch');
+    const nextMatch = document.getElementById('nextMatch');
+    let currentMatchIndex = -1;
+    let matches = [];
 
     function showLoading() {
         loading.classList.remove('d-none');
@@ -55,17 +63,90 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.timestamp-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const time = parseFloat(btn.dataset.time);
-                    // Send message to YouTube iframe to seek to timestamp
                     if (window.player && window.player.seekTo) {
                         window.player.seekTo(time);
                         window.player.playVideo();
                     }
                 });
             });
+
+            // Clear any existing search
+            clearSearchHighlights();
         } else {
-            transcriptText.innerHTML = transcript; // Fallback for plain text
+            transcriptText.innerHTML = transcript;
         }
     }
+
+    // Search functionality
+    function highlightSearch(searchText) {
+        if (!searchText.trim()) {
+            clearSearchHighlights();
+            return;
+        }
+
+        const text = transcriptText.innerHTML;
+        const searchRegex = new RegExp(`(${searchText})`, 'gi');
+
+        // Remove existing highlights but keep the transcript structure
+        const cleanText = text.replace(/<span class="search-highlight( active)?">([^<]+)<\/span>/g, '$2');
+
+        // Add new highlights
+        const highlightedText = cleanText.replace(searchRegex, '<span class="search-highlight">$1</span>');
+        transcriptText.innerHTML = highlightedText;
+
+        // Update matches array
+        matches = Array.from(transcriptText.querySelectorAll('.search-highlight'));
+        currentMatchIndex = matches.length > 0 ? 0 : -1;
+
+        // Update UI
+        matchCount.textContent = matches.length;
+        searchStats.classList.toggle('d-none', matches.length === 0);
+
+        if (matches.length > 0) {
+            highlightCurrentMatch();
+        }
+    }
+
+    function clearSearchHighlights() {
+        const text = transcriptText.innerHTML;
+        transcriptText.innerHTML = text.replace(/<span class="search-highlight( active)?">([^<]+)<\/span>/g, '$2');
+        matches = [];
+        currentMatchIndex = -1;
+        searchStats.classList.add('d-none');
+        searchInput.value = '';
+    }
+
+    function highlightCurrentMatch() {
+        // Remove current highlight
+        matches.forEach(match => match.classList.remove('active'));
+
+        if (currentMatchIndex >= 0 && currentMatchIndex < matches.length) {
+            const currentMatch = matches[currentMatchIndex];
+            currentMatch.classList.add('active');
+            currentMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // Search event listeners
+    searchInput.addEventListener('input', () => {
+        highlightSearch(searchInput.value);
+    });
+
+    clearSearch.addEventListener('click', clearSearchHighlights);
+
+    prevMatch.addEventListener('click', () => {
+        if (matches.length > 0) {
+            currentMatchIndex = (currentMatchIndex - 1 + matches.length) % matches.length;
+            highlightCurrentMatch();
+        }
+    });
+
+    nextMatch.addEventListener('click', () => {
+        if (matches.length > 0) {
+            currentMatchIndex = (currentMatchIndex + 1) % matches.length;
+            highlightCurrentMatch();
+        }
+    });
 
     async function fetchTranscript(url, languageCode = 'en') {
         showLoading();
