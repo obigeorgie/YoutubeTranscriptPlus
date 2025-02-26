@@ -94,9 +94,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Reinitialize player with new video
             if (videoId) {
-                if (window.player) {
-                    window.player.destroy();
-                }
+                // Clean up existing player
+                const playerElement = document.getElementById('player');
+                playerElement.innerHTML = '';
+                window.player = null;
                 loadYouTubePlayer(videoId);
             }
 
