@@ -360,6 +360,36 @@ document.addEventListener('DOMContentLoaded', function() {
             wordCloudImage.style.display = 'block';
             wordCloudLoading.classList.add('d-none');
 
+            // When word cloud image is clicked
+            wordCloudImage.addEventListener('click', function(e) {
+                const rect = this.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // Send coordinates to get the word at that position
+                const formData = new FormData();
+                formData.append('x', x);
+                formData.append('y', y);
+                formData.append('width', this.width);
+                formData.append('height', this.height);
+
+                fetch('/get-word-at-position', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.word) {
+                        // Hide the modal
+                        wordCloudModal.hide();
+                        // Search for the word in transcript
+                        searchInput.value = data.word;
+                        highlightSearch(data.word);
+                    }
+                })
+                .catch(err => console.error('Error getting word:', err));
+            });
+
             // Clean up the URL when the image loads
             wordCloudImage.onload = () => URL.revokeObjectURL(imageUrl);
         } catch (err) {

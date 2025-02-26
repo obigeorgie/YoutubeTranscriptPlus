@@ -3,7 +3,7 @@ import re
 import json
 import nltk
 from urllib.parse import urlparse, parse_qs
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session
 import youtube_transcript_api
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 import logging
@@ -276,7 +276,33 @@ def format_timestamp_vtt(seconds):
     millis = int((seconds * 1000) % 1000)
     return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
 
-@app.route('/generate-wordcloud', methods=['POST'])
+@app.route('/get-word-at-position', methods=['POST'])
+def get_word_at_position():
+    try:
+        x = float(request.form.get('x', 0))
+        y = float(request.form.get('y', 0))
+        width = float(request.form.get('width', 0))
+        height = float(request.form.get('height', 0))
+
+        # Scale coordinates to match the original image size
+        x = int((x / width) * 800)  # 800 is the original width
+        y = int((y / height) * 400)  # 400 is the original height
+
+        # Get the word at the clicked position from the session
+        word_positions = session.get('word_positions', {})
+        clicked_word = None
+
+        for word, positions in word_positions.items():
+            if positions['x'] <= x <= positions['x'] + positions['width'] and \
+               positions['y'] <= y <= positions['y'] + positions['height']:
+                clicked_word = word
+                break
+
+        return jsonify({'word': clicked_word})
+    except Exception as e:
+        logger.error(f"Error getting word at position: {str(e)}")
+        return jsonify({'error': 'Failed to get word at position'}), 500
+
 def generate_wordcloud():
     try:
         transcript_data = request.form.get('transcript_data', '')
@@ -292,7 +318,7 @@ def generate_wordcloud():
         # Combine all text from transcript
         full_text = ' '.join(entry['text'] for entry in transcript_entries)
 
-        # Basic text cleaning (remove special characters and extra spaces)
+        # Basic text cleaning
         full_text = re.sub(r'[^\w\s]', '', full_text)
         full_text = ' '.join(full_text.split())
 
@@ -304,16 +330,35 @@ def generate_wordcloud():
         if not words:
             return jsonify({'error': 'No valid words found for word cloud'}), 400
 
-        # Generate word cloud
+        # Generate word cloud with position tracking
         wordcloud = WordCloud(
             width=800,
             height=400,
-            background_color='#2d2d2d',  # Dark background
-            colormap='viridis',  # Color scheme
+            background_color='#2d2d2d',
+            colormap='viridis',
             max_words=100,
             min_font_size=10,
             max_font_size=60
-        ).generate(' '.join(words))
+        )
+
+        # Generate the word cloud
+        wordcloud.generate(' '.join(words))
+
+        # Get word positions
+        word_positions = {}
+        for (word, freq), font_size, position, orientation, color in wordcloud.layout_:
+            x, y = position
+            width = len(word) * (font_size / 3)  # Approximate width based on font size
+            height = font_size
+            word_positions[word] = {
+                'x': int(x),
+                'y': int(y),
+                'width': int(width),
+                'height': int(height)
+            }
+
+        # Store positions in session for click handling
+        session['word_positions'] = word_positions
 
         # Convert to image
         img_io = io.BytesIO()
@@ -329,3 +374,11 @@ def generate_wordcloud():
     except Exception as e:
         logger.error(f"Error generating word cloud: {str(e)}")
         return jsonify({'error': 'Failed to generate word cloud'}), 500
+
+@app.route('/generate-wordcloud', methods=['POST'])
+def generate_wordcloud_route(): #Renamed to avoid conflict
+    return generate_wordcloud()
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
