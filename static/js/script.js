@@ -5,6 +5,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const transcriptContainer = document.getElementById('transcriptContainer');
     const transcriptText = document.getElementById('transcript');
     const downloadBtn = document.getElementById('downloadBtn');
+    const languageSelector = document.getElementById('languageSelector');
+    const languageSelect = document.getElementById('language');
+    const currentLanguage = document.getElementById('currentLanguage');
+    let currentVideoUrl = '';
 
     function showLoading() {
         loading.classList.remove('d-none');
@@ -32,10 +36,16 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>`;
     }
 
-    function showTranscript(transcript) {
+    function showTranscript(transcript, language) {
         loading.classList.add('d-none');
         error.classList.add('d-none');
         transcriptContainer.classList.remove('d-none');
+
+        // Show current language
+        if (language) {
+            currentLanguage.textContent = `Current language: ${language}`;
+            currentLanguage.classList.remove('d-none');
+        }
 
         // Convert transcript data to HTML with clickable timestamps
         if (Array.isArray(transcript)) {
@@ -57,14 +67,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const url = document.getElementById('youtubeUrl').value;
-
+    async function fetchTranscript(url, languageCode = 'en') {
         showLoading();
 
         const formData = new FormData();
         formData.append('url', url);
+        formData.append('language', languageCode);
 
         try {
             const response = await fetch('/get-transcript', {
@@ -78,21 +86,63 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(data.error || 'Failed to fetch transcript');
             }
 
-            // Extract video ID from URL
-            let videoId;
-            try {
-                const urlObj = new URL(url);
-                if (url.includes('youtube.com')) {
-                    videoId = urlObj.searchParams.get('v');
-                } else if (url.includes('youtu.be')) {
-                    videoId = urlObj.pathname.slice(1);
-                }
-            } catch (e) {
-                console.error('Error parsing URL:', e);
-                videoId = url.split('/').pop().split('?')[0];
+            showTranscript(data.transcript_data, data.language);
+        } catch (err) {
+            showError(err.message);
+        }
+    }
+
+    async function fetchLanguages(url) {
+        const formData = new FormData();
+        formData.append('url', url);
+
+        try {
+            const response = await fetch('/get-languages', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to fetch languages');
             }
 
-            // Reinitialize player with new video
+            // Populate language selector
+            languageSelect.innerHTML = '<option value="" disabled selected>Choose a language...</option>';
+            data.languages.forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang.code;
+                option.textContent = `${lang.name} (${lang.type})`;
+                languageSelect.appendChild(option);
+            });
+
+            // Show language selector
+            languageSelector.classList.remove('d-none');
+
+            // Select first language and fetch transcript
+            if (data.languages.length > 0) {
+                languageSelect.value = data.languages[0].code;
+                await fetchTranscript(url, data.languages[0].code);
+            }
+
+            return data.video_id;
+        } catch (err) {
+            showError(err.message);
+            languageSelector.classList.add('d-none');
+            return null;
+        }
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const url = document.getElementById('youtubeUrl').value;
+        currentVideoUrl = url;
+
+        try {
+            // Extract video ID and initialize player
+            const videoId = await fetchLanguages(url);
+
             if (videoId) {
                 // Clean up existing player
                 const playerElement = document.getElementById('player');
@@ -100,10 +150,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.player = null;
                 loadYouTubePlayer(videoId);
             }
-
-            showTranscript(data.transcript_data);
         } catch (err) {
             showError(err.message);
+        }
+    });
+
+    languageSelect.addEventListener('change', function() {
+        if (currentVideoUrl && this.value) {
+            fetchTranscript(currentVideoUrl, this.value);
         }
     });
 
