@@ -412,6 +412,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!currentTranscriptData) return;
 
             const analysisType = this.dataset.analysis;
+            const analysisTitle = this.textContent.trim();
+
+            // Update modal title based on analysis type
+            document.getElementById('aiAnalysisModalLabel').textContent = analysisTitle;
+
             aiAnalysisContent.innerHTML = '';
             aiAnalysisLoading.classList.remove('d-none');
             aiAnalysisModal.show();
@@ -433,16 +438,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 // Format the content based on analysis type
-                let formattedContent = '';
+                let formattedContent = '<div class="ai-analysis-content">';
                 if (analysisType === 'summary') {
-                    formattedContent = `<h6 class="mb-3">Summary:</h6><p>${data.summary}</p>`;
+                    formattedContent += `
+                        <h6><i class="fa fa-file-text-o me-2"></i>Summary</h6>
+                        <p>${data.summary}</p>
+                    `;
                 } else if (analysisType === 'key_points') {
-                    formattedContent = `<h6 class="mb-3">Key Points:</h6>${data.key_points}`;
+                    // Assume key_points comes as a bullet-pointed string
+                    const points = data.key_points.split('\n').filter(point => point.trim());
+                    formattedContent += `
+                        <h6><i class="fa fa-list me-2"></i>Key Points</h6>
+                        <ul>
+                            ${points.map(point => `<li>${point.replace(/^[•\-\*]\s*/, '')}</li>`).join('')}
+                        </ul>
+                    `;
                 }
+                formattedContent += '</div>';
 
                 aiAnalysisContent.innerHTML = formattedContent;
             } catch (err) {
-                aiAnalysisContent.innerHTML = `<div class="alert alert-danger">Failed to analyze transcript: ${err.message}</div>`;
+                aiAnalysisContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fa fa-exclamation-circle me-2"></i>
+                        Failed to analyze transcript: ${err.message}
+                    </div>
+                `;
             } finally {
                 aiAnalysisLoading.classList.add('d-none');
             }

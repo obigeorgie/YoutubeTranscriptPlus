@@ -89,3 +89,45 @@ pre {
 #searchStats {
     color: var(--bs-secondary-text);
 }
+
+/* Add these styles at the end of the file */
+.ai-analysis-content {
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.ai-analysis-content h6 {
+    color: var(--bs-info);
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.ai-analysis-content p {
+    margin-bottom: 1rem;
+}
+
+.ai-analysis-content ul {
+    padding-left: 1.5rem;
+}
+
+.ai-analysis-content li {
+    margin-bottom: 0.5rem;
+}
+
+.modal-content {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.dropdown-item .fa {
+    width: 1.5em;
+    text-align: center;
+}
