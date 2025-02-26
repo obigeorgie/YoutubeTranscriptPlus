@@ -292,12 +292,15 @@ def get_word_at_position():
         word_positions = session.get('word_positions', {})
         clicked_word = None
 
+        # Add some tolerance for click detection
+        tolerance = 5  # pixels
         for word, positions in word_positions.items():
-            if positions['x'] <= x <= positions['x'] + positions['width'] and \
-               positions['y'] <= y <= positions['y'] + positions['height']:
+            if (positions['x'] - tolerance <= x <= positions['x'] + positions['width'] + tolerance and 
+                positions['y'] - tolerance <= y <= positions['y'] + positions['height'] + tolerance):
                 clicked_word = word
                 break
 
+        logger.debug(f"Click at coordinates: ({x}, {y}), Found word: {clicked_word}")
         return jsonify({'word': clicked_word})
     except Exception as e:
         logger.error(f"Error getting word at position: {str(e)}")
@@ -344,18 +347,19 @@ def generate_wordcloud():
         # Generate the word cloud
         wordcloud.generate(' '.join(words))
 
-        # Get word positions
+        # Get word positions with improved accuracy
         word_positions = {}
         for (word, freq), font_size, position, orientation, color in wordcloud.layout_:
             x, y = position
-            width = len(word) * (font_size / 3)  # Approximate width based on font size
-            height = font_size
+            width = len(word) * (font_size / 2)  # More accurate width calculation
+            height = font_size * 1.2  # Add some padding
             word_positions[word] = {
                 'x': int(x),
-                'y': int(y),
+                'y': int(y - height/2),  # Center the clickable area
                 'width': int(width),
                 'height': int(height)
             }
+            logger.debug(f"Word '{word}' position: x={x}, y={y}, width={width}, height={height}")
 
         # Store positions in session for click handling
         session['word_positions'] = word_positions
@@ -376,7 +380,7 @@ def generate_wordcloud():
         return jsonify({'error': 'Failed to generate word cloud'}), 500
 
 @app.route('/generate-wordcloud', methods=['POST'])
-def generate_wordcloud_route(): #Renamed to avoid conflict
+def generate_wordcloud_route():
     return generate_wordcloud()
 
 

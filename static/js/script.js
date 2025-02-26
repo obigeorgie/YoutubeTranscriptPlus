@@ -363,6 +363,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // When word cloud image is clicked
             wordCloudImage.addEventListener('click', function(e) {
                 const rect = this.getBoundingClientRect();
+                // Calculate click coordinates relative to the image
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
 
@@ -387,7 +388,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         highlightSearch(data.word);
                     }
                 })
-                .catch(err => console.error('Error getting word:', err));
+                .catch(err => {
+                    console.error('Error getting word:', err);
+                    showError('Failed to get word from word cloud');
+                });
             });
 
             // Clean up the URL when the image loads
