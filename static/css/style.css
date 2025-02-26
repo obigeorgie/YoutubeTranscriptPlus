@@ -1,0 +1,24 @@
+.transcript-text {
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+pre {
+    color: inherit;
+    background: transparent;
+}
+
+.container {
+    max-width: 900px;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
