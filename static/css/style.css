@@ -10,7 +10,7 @@ pre {
 }
 
 .container {
-    max-width: 900px;
+    max-width: 1200px;
 }
 
 .card {
@@ -21,4 +21,47 @@ pre {
 .spinner-border {
     width: 3rem;
     height: 3rem;
+}
+
+.transcript-container {
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.transcript-entry {
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.timestamp-btn {
+    font-family: monospace;
+    padding: 0;
+    color: var(--bs-info);
+    text-decoration: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: 70px;
+    text-align: left;
+}
+
+.timestamp-btn:hover {
+    color: var(--bs-info-text);
+    text-decoration: underline;
+}
+
+.transcript-text {
+    flex: 1;
+    color: inherit;
+}
+
+#player {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    overflow: hidden;
 }

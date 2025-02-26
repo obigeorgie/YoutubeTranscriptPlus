@@ -11,13 +11,13 @@
 <body>
     <div class="container py-5">
         <div class="row justify-content-center">
-            <div class="col-md-8">
+            <div class="col-md-10">
                 <div class="text-center mb-5">
                     <h1 class="display-4">YouTube Transcript Generator</h1>
-                    <p class="lead">Get transcripts from any YouTube video</p>
+                    <p class="lead">Get transcripts from any YouTube video with timestamp navigation</p>
                 </div>
 
-                <div class="card">
+                <div class="card mb-4">
                     <div class="card-body">
                         <form id="transcriptForm" class="mb-4">
                             <div class="mb-3">
@@ -31,7 +31,15 @@
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
 
+                <div class="row">
+                    <div class="col-md-6">
+                        <!-- YouTube Player Container -->
+                        <div id="player" class="mb-4 ratio ratio-16x9"></div>
+                    </div>
+                    <div class="col-md-6">
                         <div id="loading" class="text-center d-none">
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Loading...</span>
@@ -48,8 +56,8 @@
                                     <i class="fa fa-download"></i> Download
                                 </button>
                             </div>
-                            <div class="transcript-text bg-dark p-3 rounded" style="max-height: 500px; overflow-y: auto;">
-                                <pre id="transcript" class="mb-0"></pre>
+                            <div class="transcript-container bg-dark p-3 rounded" style="max-height: 500px; overflow-y: auto;">
+                                <div id="transcript"></div>
                             </div>
                         </div>
                     </div>

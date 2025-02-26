@@ -19,17 +19,48 @@ document.addEventListener('DOMContentLoaded', function() {
         transcriptContainer.classList.add('d-none');
     }
 
+    function formatTranscriptEntry(entry) {
+        const timestamp = entry.start;
+        const minutes = Math.floor(timestamp / 60);
+        const seconds = Math.floor(timestamp % 60);
+        const text = entry.text.trim();
+        return `<div class="transcript-entry">
+            <button class="timestamp-btn btn btn-link" data-time="${timestamp}">
+                [${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]
+            </button>
+            <span class="transcript-text">${text}</span>
+        </div>`;
+    }
+
     function showTranscript(transcript) {
         loading.classList.add('d-none');
         error.classList.add('d-none');
         transcriptContainer.classList.remove('d-none');
-        transcriptText.textContent = transcript;
+
+        // Convert transcript data to HTML with clickable timestamps
+        if (Array.isArray(transcript)) {
+            transcriptText.innerHTML = transcript.map(formatTranscriptEntry).join('\n');
+
+            // Add click handlers for timestamps
+            document.querySelectorAll('.timestamp-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const time = parseFloat(btn.dataset.time);
+                    // Send message to YouTube iframe to seek to timestamp
+                    if (window.player) {
+                        window.player.seekTo(time);
+                        window.player.playVideo();
+                    }
+                });
+            });
+        } else {
+            transcriptText.innerHTML = transcript; // Fallback for plain text
+        }
     }
 
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         const url = document.getElementById('youtubeUrl').value;
-        
+
         showLoading();
 
         const formData = new FormData();
@@ -42,12 +73,18 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to fetch transcript');
             }
 
-            showTranscript(data.transcript);
+            // Load YouTube player if not already loaded
+            if (!window.player) {
+                const videoId = new URL(url).searchParams.get('v') || url.split('/').pop().split('?')[0];
+                loadYouTubePlayer(videoId);
+            }
+
+            showTranscript(data.transcript_data);
         } catch (err) {
             showError(err.message);
         }
@@ -70,7 +107,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Failed to download transcript');
             }
 
-            // Create a blob from the response
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -84,4 +120,31 @@ document.addEventListener('DOMContentLoaded', function() {
             showError(err.message);
         }
     });
+
+    // YouTube Player API integration
+    function loadYouTubePlayer(videoId) {
+        if (!window.YT) {
+            const tag = document.createElement('script');
+            tag.src = 'https://www.youtube.com/iframe_api';
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+            window.onYouTubeIframeAPIReady = () => {
+                createPlayer(videoId);
+            };
+        } else {
+            createPlayer(videoId);
+        }
+    }
+
+    function createPlayer(videoId) {
+        window.player = new YT.Player('player', {
+            height: '360',
+            width: '640',
+            videoId: videoId,
+            playerVars: {
+                'playsinline': 1
+            }
+        });
+    }
 });

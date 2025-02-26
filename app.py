@@ -73,16 +73,12 @@ def get_transcript():
             logger.warning(f"No transcript found for video ID: {video_id}")
             return jsonify({'error': 'No transcript available for this video'}), 404
 
-        formatted_transcript = ''
-        for entry in transcript_list:
-            timestamp = entry['start']
-            minutes = int(timestamp // 60)
-            seconds = int(timestamp % 60)
-            text = entry['text'].strip()
-            formatted_transcript += f'[{minutes:02d}:{seconds:02d}] {text}\n'
-
+        # Return the raw transcript data for client-side processing
         logger.info(f"Successfully retrieved transcript for video ID: {video_id}")
-        return jsonify({'transcript': formatted_transcript})
+        return jsonify({
+            'transcript_data': transcript_list,
+            'video_id': video_id
+        })
 
     except TranscriptsDisabled:
         logger.warning(f"Transcripts are disabled for video ID: {video_id}")
