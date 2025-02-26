@@ -327,4 +327,44 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Player error:', event.data);
         showError('Error loading YouTube video');
     }
+
+    // Word Cloud functionality
+    const wordCloudBtn = document.getElementById('wordCloudBtn');
+    const wordCloudModal = new bootstrap.Modal(document.getElementById('wordCloudModal'));
+    const wordCloudImage = document.getElementById('wordCloudImage');
+    const wordCloudLoading = document.getElementById('wordCloudLoading');
+
+    wordCloudBtn.addEventListener('click', async function() {
+        if (!currentTranscriptData) return;
+
+        wordCloudImage.style.display = 'none';
+        wordCloudLoading.classList.remove('d-none');
+        wordCloudModal.show();
+
+        const formData = new FormData();
+        formData.append('transcript_data', JSON.stringify(currentTranscriptData));
+
+        try {
+            const response = await fetch('/generate-wordcloud', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate word cloud');
+            }
+
+            const blob = await response.blob();
+            const imageUrl = URL.createObjectURL(blob);
+            wordCloudImage.src = imageUrl;
+            wordCloudImage.style.display = 'block';
+            wordCloudLoading.classList.add('d-none');
+
+            // Clean up the URL when the image loads
+            wordCloudImage.onload = () => URL.revokeObjectURL(imageUrl);
+        } catch (err) {
+            showError(err.message);
+            wordCloudModal.hide();
+        }
+    });
 });

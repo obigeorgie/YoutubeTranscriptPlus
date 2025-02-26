@@ -1,12 +1,20 @@
 import os
 import re
 import json
+import nltk
 from urllib.parse import urlparse, parse_qs
 from flask import Flask, render_template, request, jsonify, send_file
 import youtube_transcript_api
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 import logging
 import io
+from wordcloud import WordCloud
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
+# Download required NLTK data
+nltk.download('punkt')
+nltk.download('stopwords')
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -266,3 +274,51 @@ def format_timestamp_vtt(seconds):
     secs = int(seconds % 60)
     millis = int((seconds * 1000) % 1000)
     return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
+
+@app.route('/generate-wordcloud', methods=['POST'])
+def generate_wordcloud():
+    try:
+        transcript_data = request.form.get('transcript_data', '')
+        if not transcript_data:
+            return jsonify({'error': 'No transcript data provided'}), 400
+
+        # Parse transcript data
+        try:
+            transcript_entries = json.loads(transcript_data)
+        except json.JSONDecodeError:
+            return jsonify({'error': 'Invalid transcript data format'}), 400
+
+        # Combine all text from transcript
+        full_text = ' '.join(entry['text'] for entry in transcript_entries)
+
+        # Tokenize and process text
+        stop_words = set(stopwords.words('english'))
+        word_tokens = word_tokenize(full_text.lower())
+
+        # Filter out stop words and non-alphabetic tokens
+        filtered_text = ' '.join([word for word in word_tokens 
+                                if word.isalpha() and word not in stop_words])
+
+        # Generate word cloud
+        wordcloud = WordCloud(
+            width=800,
+            height=400,
+            background_color='#2d2d2d',  # Dark background
+            colormap='viridis',  # Color scheme
+            max_words=100
+        ).generate(filtered_text)
+
+        # Convert to image
+        img_io = io.BytesIO()
+        wordcloud.to_image().save(img_io, 'PNG')
+        img_io.seek(0)
+
+        return send_file(
+            img_io,
+            mimetype='image/png',
+            as_attachment=False
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating word cloud: {str(e)}")
+        return jsonify({'error': 'Failed to generate word cloud'}), 500
