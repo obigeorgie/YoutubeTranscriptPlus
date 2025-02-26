@@ -11,6 +11,7 @@ import io
 from wordcloud import WordCloud
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from ai_service import AIService # Added import
 
 # Download required NLTK data
 nltk.download('punkt')
@@ -26,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
+
+ai_service = AIService() # Added AIService initialization
 
 def extract_video_id(url):
     """Extract YouTube video ID from URL with improved parsing."""
@@ -383,6 +386,40 @@ def generate_wordcloud():
 def generate_wordcloud_route():
     return generate_wordcloud()
 
+
+@app.route('/analyze-transcript', methods=['POST']) # Added route
+def analyze_transcript():
+    try:
+        transcript_data = request.form.get('transcript_data', '')
+        analysis_type = request.form.get('type', '')  # 'summary' or 'key_points'
+
+        if not transcript_data:
+            return jsonify({'error': 'No transcript data provided'}), 400
+
+        try:
+            transcript_entries = json.loads(transcript_data)
+        except json.JSONDecodeError:
+            return jsonify({'error': 'Invalid transcript data format'}), 400
+
+        # Combine all text from transcript
+        full_text = ' '.join(entry['text'] for entry in transcript_entries)
+
+        try:
+            if analysis_type == 'summary':
+                result = ai_service.summarize_transcript(full_text)
+                return jsonify({'summary': result})
+            elif analysis_type == 'key_points':
+                result = ai_service.extract_key_points(full_text)
+                return jsonify({'key_points': result})
+            else:
+                return jsonify({'error': 'Invalid analysis type'}), 400
+        except Exception as e:
+            logger.error(f"Error in AI analysis: {e}")
+            return jsonify({'error': 'Failed to analyze transcript'}), 500
+
+    except Exception as e:
+        logger.error(f"Error in analyze_transcript: {e}")
+        return jsonify({'error': 'Failed to process request'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

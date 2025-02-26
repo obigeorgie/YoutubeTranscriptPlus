@@ -65,6 +65,15 @@
                                     <button class="btn btn-secondary me-2" id="wordCloudBtn">
                                         <i class="fa fa-cloud"></i> Word Cloud
                                     </button>
+                                    <div class="btn-group">
+                                        <button class="btn btn-secondary dropdown-toggle" type="button" id="aiAnalysisBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fa fa-brain"></i> AI Analysis
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><button class="dropdown-item" data-analysis="summary">Generate Summary</button></li>
+                                            <li><button class="dropdown-item" data-analysis="key_points">Extract Key Points</button></li>
+                                        </ul>
+                                    </div>
                                     <button class="btn btn-secondary dropdown-toggle" type="button" id="downloadBtn" data-bs-toggle="dropdown" aria-expanded="false">
                                         <i class="fa fa-download"></i> Download
                                     </button>
@@ -119,6 +128,26 @@
                         </div>
                     </div>
                     <img id="wordCloudImage" class="img-fluid rounded" style="max-width: 100%;" alt="Word Cloud">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="aiAnalysisModal" tabindex="-1" aria-labelledby="aiAnalysisModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="aiAnalysisModalLabel">AI Analysis</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="aiAnalysisLoading" class="text-center d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Analyzing...</span>
+                        </div>
+                        <p class="mt-2">Analyzing transcript...</p>
+                    </div>
+                    <div id="aiAnalysisContent" class="p-3"></div>
                 </div>
             </div>
         </div>

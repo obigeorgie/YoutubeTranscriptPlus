@@ -401,4 +401,51 @@ document.addEventListener('DOMContentLoaded', function() {
             wordCloudModal.hide();
         }
     });
+
+    // AI Analysis functionality
+    const aiAnalysisModal = new bootstrap.Modal(document.getElementById('aiAnalysisModal'));
+    const aiAnalysisContent = document.getElementById('aiAnalysisContent');
+    const aiAnalysisLoading = document.getElementById('aiAnalysisLoading');
+
+    document.querySelectorAll('[data-analysis]').forEach(button => {
+        button.addEventListener('click', async function() {
+            if (!currentTranscriptData) return;
+
+            const analysisType = this.dataset.analysis;
+            aiAnalysisContent.innerHTML = '';
+            aiAnalysisLoading.classList.remove('d-none');
+            aiAnalysisModal.show();
+
+            const formData = new FormData();
+            formData.append('transcript_data', JSON.stringify(currentTranscriptData));
+            formData.append('type', analysisType);
+
+            try {
+                const response = await fetch('/analyze-transcript', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to analyze transcript');
+                }
+
+                const data = await response.json();
+
+                // Format the content based on analysis type
+                let formattedContent = '';
+                if (analysisType === 'summary') {
+                    formattedContent = `<h6 class="mb-3">Summary:</h6><p>${data.summary}</p>`;
+                } else if (analysisType === 'key_points') {
+                    formattedContent = `<h6 class="mb-3">Key Points:</h6>${data.key_points}`;
+                }
+
+                aiAnalysisContent.innerHTML = formattedContent;
+            } catch (err) {
+                aiAnalysisContent.innerHTML = `<div class="alert alert-danger">Failed to analyze transcript: ${err.message}</div>`;
+            } finally {
+                aiAnalysisLoading.classList.add('d-none');
+            }
+        });
+    });
 });
