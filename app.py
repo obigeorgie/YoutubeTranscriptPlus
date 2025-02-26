@@ -15,6 +15,7 @@ from nltk.tokenize import word_tokenize
 # Download required NLTK data
 nltk.download('punkt')
 nltk.download('stopwords')
+nltk.download('punkt_tab')
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -291,13 +292,17 @@ def generate_wordcloud():
         # Combine all text from transcript
         full_text = ' '.join(entry['text'] for entry in transcript_entries)
 
-        # Tokenize and process text
-        stop_words = set(stopwords.words('english'))
-        word_tokens = word_tokenize(full_text.lower())
+        # Basic text cleaning (remove special characters and extra spaces)
+        full_text = re.sub(r'[^\w\s]', '', full_text)
+        full_text = ' '.join(full_text.split())
 
-        # Filter out stop words and non-alphabetic tokens
-        filtered_text = ' '.join([word for word in word_tokens 
-                                if word.isalpha() and word not in stop_words])
+        # Filter out stop words
+        stop_words = set(stopwords.words('english'))
+        words = [word.lower() for word in full_text.split() 
+                if word.lower() not in stop_words and word.isalpha()]
+
+        if not words:
+            return jsonify({'error': 'No valid words found for word cloud'}), 400
 
         # Generate word cloud
         wordcloud = WordCloud(
@@ -305,8 +310,10 @@ def generate_wordcloud():
             height=400,
             background_color='#2d2d2d',  # Dark background
             colormap='viridis',  # Color scheme
-            max_words=100
-        ).generate(filtered_text)
+            max_words=100,
+            min_font_size=10,
+            max_font_size=60
+        ).generate(' '.join(words))
 
         # Convert to image
         img_io = io.BytesIO()
