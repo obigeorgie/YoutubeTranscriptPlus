@@ -36,9 +36,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const timestamp = entry.start;
         const minutes = Math.floor(timestamp / 60);
         const seconds = Math.floor(timestamp % 60);
+        const milliseconds = Math.floor((timestamp % 1) * 1000);
         const text = entry.text.trim();
+        const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
 
-        // Generate confidence indicator class
+        // Generate confidence indicator class for speaker identification
         let confidenceClass = 'confidence-medium';
         if (entry.speaker_info?.confidence >= 0.8) {
             confidenceClass = 'confidence-high';
@@ -68,10 +70,33 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="speaker-context">${entry.context}</div>
         ` : '';
 
-        return `<div class="transcript-entry">
-            <button class="timestamp-btn btn btn-link" data-time="${timestamp}">
-                [${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]
-            </button>
+        // Get video ID from current URL
+        const videoId = currentVideoUrl ? extractVideoId(currentVideoUrl) : '';
+
+        // Generate thumbnail URL for preview (using YouTube's thumbnail API)
+        const thumbnailUrl = videoId ?
+            `https://img.youtube.com/vi/${videoId}/${Math.floor(timestamp / 60)}.jpg` : '';
+
+        return `<div class="transcript-entry" data-timestamp="${timestamp}">
+            <div class="timestamp-wrapper">
+                <button class="timestamp-btn btn btn-link" data-time="${timestamp}">
+                    [${formattedTime}]
+                    ${thumbnailUrl ? `
+                        <div class="timestamp-preview">
+                            <img src="${thumbnailUrl}" alt="Video preview">
+                        </div>
+                    ` : ''}
+                    <div class="timestamp-copied">Copied! ✓</div>
+                </button>
+                <div class="timestamp-actions">
+                    <button class="timestamp-action-btn" title="Copy timestamp" data-action="copy-time">
+                        📋
+                    </button>
+                    <button class="timestamp-action-btn" title="Copy timestamp with text" data-action="copy-time-text">
+                        📝
+                    </button>
+                </div>
+            </div>
             ${speakerLabel}
             <span class="transcript-text">
                 ${text}
@@ -417,20 +442,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     method: 'POST',
                     body: formData
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.word) {
-                        // Hide the modal
-                        wordCloudModal.hide();
-                        // Search for the word in transcript
-                        searchInput.value = data.word;
-                        highlightSearch(data.word);
-                    }
-                })
-                .catch(err => {
-                    console.error('Error getting word:', err);
-                    showError('Failed to get word from word cloud');
-                });
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.word) {
+                            // Hide the modal
+                            wordCloudModal.hide();
+                            // Search for the word in transcript
+                            searchInput.value = data.word;
+                            highlightSearch(data.word);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error getting word:', err);
+                        showError('Failed to get word from word cloud');
+                    });
             });
 
             // Clean up the URL when the image loads
@@ -587,5 +612,88 @@ document.addEventListener('DOMContentLoaded', function() {
     const identifySpeakersBtn = document.getElementById('identifySpeakersBtn');
     if (identifySpeakersBtn) {
         identifySpeakersBtn.addEventListener('click', identifySpeakers);
+    }
+
+    // Add timestamp-related event listeners
+    document.addEventListener('click', function(e) {
+        // Handle timestamp copy buttons
+        if (e.target.classList.contains('timestamp-action-btn')) {
+            const action = e.target.dataset.action;
+            const entry = e.target.closest('.transcript-entry');
+            const timestamp = entry.dataset.timestamp;
+            const formattedTime = formatTimestamp(timestamp);
+            const text = entry.querySelector('.transcript-text').textContent.trim();
+
+            let copyText = '';
+            if (action === 'copy-time') {
+                copyText = formattedTime;
+            } else if (action === 'copy-time-text') {
+                copyText = `[${formattedTime}] ${text}`;
+            }
+
+            navigator.clipboard.writeText(copyText).then(() => {
+                const copiedLabel = entry.querySelector('.timestamp-copied');
+                copiedLabel.classList.add('show');
+                setTimeout(() => {
+                    copiedLabel.classList.remove('show');
+                }, 1500);
+            });
+        }
+
+        // Handle timestamp seeking
+        if (e.target.classList.contains('timestamp-btn')) {
+            const time = parseFloat(e.target.dataset.time);
+            if (window.player && window.player.seekTo) {
+                window.player.seekTo(time);
+                window.player.playVideo();
+            }
+        }
+    });
+
+    // Helper function to format timestamp
+    function formatTimestamp(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        const millisecs = Math.floor((seconds % 1) * 1000);
+        return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${millisecs.toString().padStart(3, '0')}`;
+    }
+
+    // Helper function to extract video ID from YouTube URL
+    function extractVideoId(url) {
+        const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[7].length == 11) ? match[7] : false;
+    }
+
+    // Handle timestamp range selection
+    let selectionStart = null;
+    document.addEventListener('mousedown', function(e) {
+        if (e.target.classList.contains('transcript-entry')) {
+            selectionStart = parseFloat(e.target.dataset.timestamp);
+        }
+    });
+
+    document.addEventListener('mouseup', function(e) {
+        if (selectionStart !== null && e.target.classList.contains('transcript-entry')) {
+            const selectionEnd = parseFloat(e.target.dataset.timestamp);
+            if (selectionEnd > selectionStart) {
+                const timeRange = `${formatTimestamp(selectionStart)} - ${formatTimestamp(selectionEnd)}`;
+                navigator.clipboard.writeText(timeRange).then(() => {
+                    showToast('Time range copied: ' + timeRange);
+                });
+            }
+            selectionStart = null;
+        }
+    });
+
+    // Helper function to show toast notification
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
     }
 });
