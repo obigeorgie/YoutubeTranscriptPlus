@@ -30,12 +30,21 @@
                                 </div>
                             </div>
                             <div id="languageSelector" class="mb-3 d-none">
-                                <label for="language" class="form-label">
+                                <label for="language" class="form-label d-flex align-items-center gap-2">
                                     🌐 Select Language
+                                    <span class="badge bg-info" id="detectedLanguage"></span>
                                 </label>
-                                <select class="form-select" id="language">
-                                    <option value="" disabled selected>Choose a language...</option>
-                                </select>
+                                <div class="input-group">
+                                    <select class="form-select" id="language">
+                                        <option value="" disabled selected>Choose a language...</option>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-secondary" id="translateBtn" disabled>
+                                        🔄 Translate
+                                    </button>
+                                </div>
+                                <div class="form-text text-muted">
+                                    Original language: <span id="originalLanguage" class="badge bg-secondary">Not detected</span>
+                                </div>
                             </div>
                         </form>
                     </div>

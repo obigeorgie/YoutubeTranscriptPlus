@@ -269,6 +269,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show language selector
             languageSelector.classList.remove('d-none');
 
+            // Update original language display
+            if (data.original_language) {
+                document.getElementById('originalLanguage').textContent = data.original_language.name;
+                // Detect and show the language
+                document.getElementById('detectedLanguage').textContent = 
+                    `Detected: ${data.original_language.name}`;
+            }
+
             // Select first language and fetch transcript
             if (data.languages.length > 0) {
                 languageSelect.value = data.languages[0].code;
@@ -304,9 +312,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    languageSelect.addEventListener('change', function() {
+    languageSelect.addEventListener('change', async function() {
         if (currentVideoUrl && this.value) {
-            fetchTranscript(currentVideoUrl, this.value);
+            const translateBtn = document.getElementById('translateBtn');
+            const originalLanguage = document.getElementById('originalLanguage').textContent;
+
+            // Enable translate button if selected language is different from original
+            translateBtn.disabled = this.value === originalLanguage;
+
+            // Fetch transcript in the selected language
+            await fetchTranscript(currentVideoUrl, this.value);
         }
     });
 
@@ -696,4 +711,19 @@ document.addEventListener('DOMContentLoaded', function() {
             toast.remove();
         }, 3000);
     }
+
+    // Add translation button handler
+    document.getElementById('translateBtn').addEventListener('click', async function() {
+        if (currentVideoUrl && languageSelect.value) {
+            this.disabled = true;
+            this.innerHTML = '🔄 Translating...';
+
+            try {
+                await fetchTranscript(currentVideoUrl, languageSelect.value);
+            } finally {
+                this.disabled = false;
+                this.innerHTML = '🔄 Translate';
+            }
+        }
+    });
 });

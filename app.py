@@ -11,14 +11,14 @@ import io
 from wordcloud import WordCloud
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-from ai_service import AIService # Added import
+from ai_service import AIService
 
 # Download required NLTK data
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('punkt_tab')
 
-# Configure logging with more detail
+# Configure logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -26,34 +26,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
+app.secret_key = os.environ.get("SESSION_SECRET")
 
-ai_service = AIService() # Added AIService initialization
-
-def extract_video_id(url):
-    """Extract YouTube video ID from URL with improved parsing."""
-    try:
-        logger.debug(f"Extracting video ID from URL: {url}")
-        parsed_url = urlparse(url)
-
-        if 'youtube.com' in parsed_url.netloc:
-            if 'watch' in parsed_url.path:
-                query_params = parse_qs(parsed_url.query)
-                video_id = query_params.get('v', [None])[0]
-            elif 'embed' in parsed_url.path or 'v' in parsed_url.path:
-                video_id = parsed_url.path.split('/')[-1]
-            else:
-                video_id = None
-        elif 'youtu.be' in parsed_url.netloc:
-            video_id = parsed_url.path.lstrip('/')
-        else:
-            video_id = None
-
-        logger.debug(f"Extracted video ID: {video_id}")
-        return video_id
-    except Exception as e:
-        logger.error(f"Error extracting video ID: {str(e)}")
-        return None
+ai_service = AIService()
 
 @app.route('/')
 def index():
@@ -80,6 +55,24 @@ def get_languages():
         # Get all available languages
         languages = []
         try:
+            # First, identify the original language
+            original_language = None
+            try:
+                original_transcript = transcript_list.find_manually_created_transcript()
+                original_language = {
+                    'code': original_transcript.language_code,
+                    'name': original_transcript.language,
+                    'type': 'original'
+                }
+            except:
+                # If no manual transcript, try to get the auto-generated one
+                original_transcript = transcript_list.find_generated_transcript()
+                original_language = {
+                    'code': original_transcript.language_code,
+                    'name': original_transcript.language,
+                    'type': 'generated'
+                }
+
             # Get manually created transcripts
             for transcript in transcript_list._manually_created_transcripts.values():
                 languages.append({
@@ -87,6 +80,7 @@ def get_languages():
                     'name': transcript.language,
                     'type': 'manual'
                 })
+
             # Get auto-generated transcripts
             for transcript in transcript_list._generated_transcripts.values():
                 languages.append({
@@ -94,6 +88,11 @@ def get_languages():
                     'name': transcript.language,
                     'type': 'generated'
                 })
+
+            # Store original language in session
+            if original_language:
+                session['original_language'] = original_language
+
         except Exception as e:
             logger.error(f"Error processing transcripts: {str(e)}")
 
@@ -104,6 +103,7 @@ def get_languages():
         logger.info(f"Found {len(languages)} available languages")
         return jsonify({
             'languages': languages,
+            'original_language': original_language,
             'video_id': video_id
         })
 
@@ -137,8 +137,17 @@ def get_transcript():
         transcript_list = youtube_transcript_api.YouTubeTranscriptApi.list_transcripts(video_id)
 
         try:
+            # Try to get the transcript in the requested language
             transcript = transcript_list.find_transcript([language_code])
+
+            # Check if we need to translate
+            original_language = session.get('original_language', {}).get('code')
+            if original_language and language_code != original_language:
+                logger.info(f"Translating transcript from {original_language} to {language_code}")
+                transcript = transcript_list.find_transcript([original_language]).translate(language_code)
+
             transcript_data = transcript.fetch()
+
         except Exception as e:
             logger.error(f"Error fetching transcript in {language_code}: {str(e)}")
             # Try to get any available transcript if specified language is not available
@@ -155,7 +164,8 @@ def get_transcript():
             'transcript_data': transcript_data,
             'video_id': video_id,
             'language': transcript.language,
-            'language_code': transcript.language_code
+            'language_code': transcript.language_code,
+            'is_translation': language_code != transcript.language_code
         })
 
     except TranscriptsDisabled:
@@ -167,6 +177,30 @@ def get_transcript():
     except Exception as e:
         logger.error(f"Error getting transcript: {str(e)}")
         return jsonify({'error': 'An error occurred while fetching the transcript'}), 500
+
+def extract_video_id(url):
+    try:
+        logger.debug(f"Extracting video ID from URL: {url}")
+        parsed_url = urlparse(url)
+
+        if 'youtube.com' in parsed_url.netloc:
+            if 'watch' in parsed_url.path:
+                query_params = parse_qs(parsed_url.query)
+                video_id = query_params.get('v', [None])[0]
+            elif 'embed' in parsed_url.path or 'v' in parsed_url.path:
+                video_id = parsed_url.path.split('/')[-1]
+            else:
+                video_id = None
+        elif 'youtu.be' in parsed_url.netloc:
+            video_id = parsed_url.path.lstrip('/')
+        else:
+            video_id = None
+
+        logger.debug(f"Extracted video ID: {video_id}")
+        return video_id
+    except Exception as e:
+        logger.error(f"Error extracting video ID: {str(e)}")
+        return None
 
 @app.route('/download-transcript', methods=['POST'])
 def download_transcript():
