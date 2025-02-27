@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 [${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]
             </button>
             <span class="transcript-text">${text}</span>
+            <button class="copy-btn" title="Copy text" data-text="${text.replace(/"/g, '&quot;')}">
+                📋
+            </button>
         </div>`;
     }
 
@@ -468,5 +471,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 aiAnalysisLoading.classList.add('d-none');
             }
         });
+    });
+
+    // Add this after the existing event listeners
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('copy-btn')) {
+            const textToCopy = e.target.dataset.text;
+            navigator.clipboard.writeText(textToCopy)
+                .then(() => {
+                    // Visual feedback
+                    const originalText = e.target.textContent;
+                    e.target.textContent = '✅';
+                    setTimeout(() => {
+                        e.target.textContent = originalText;
+                    }, 1000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy text:', err);
+                    // Error feedback
+                    const originalText = e.target.textContent;
+                    e.target.textContent = '❌';
+                    setTimeout(() => {
+                        e.target.textContent = originalText;
+                    }, 1000);
+                });
+        }
     });
 });
