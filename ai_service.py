@@ -15,20 +15,20 @@ class AIService:
             # Prepare transcript for analysis
             transcript_text = "\n".join([
                 f"[{segment['start']:.2f}s]: {segment['text']}"
-                for segment in transcript_segments[:50]  # Process first 50 segments for quick analysis
+                for segment in transcript_segments
             ])
+
+            logger.debug(f"Sending transcript for speaker identification, length: {len(transcript_segments)} segments")
 
             response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {
                         "role": "system",
-                        "content": "Analyze this transcript and identify different speakers. "
-                        "Return a JSON array where each element contains: "
-                        "1. speaker_id (e.g., 'Speaker 1', 'Host', 'Guest') "
-                        "2. timestamp "
-                        "3. text "
-                        "Base your detection on speaking patterns, context, and conversation flow."
+                        "content": """You are a transcript speaker identifier. Analyze the transcript and identify different speakers.
+                        Return a JSON object with a 'segments' array where each element matches the input segments and includes:
+                        - speaker_id: string (e.g., 'Host', 'Guest', 'Speaker 1')
+                        Identify speakers based on context, speaking patterns, and conversation flow."""
                     },
                     {"role": "user", "content": f"Here's the transcript:\n\n{transcript_text}"}
                 ],
@@ -37,7 +37,23 @@ class AIService:
 
             # Parse the response
             result = json.loads(response.choices[0].message.content)
-            return result.get('segments', [])
+            logger.debug(f"Received speaker identification result: {result}")
+
+            # Ensure we have a segments array with speaker_id for each segment
+            segments = []
+            for i, original_segment in enumerate(transcript_segments):
+                speaker_id = (
+                    result.get('segments', [])[i].get('speaker_id', f'Speaker {i % 2 + 1}')
+                    if i < len(result.get('segments', []))
+                    else f'Speaker {i % 2 + 1}'
+                )
+                segments.append({
+                    'start': original_segment['start'],
+                    'text': original_segment['text'],
+                    'speaker_id': speaker_id
+                })
+
+            return segments
 
         except Exception as e:
             logger.error(f"Error identifying speakers: {e}")

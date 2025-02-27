@@ -504,9 +504,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Add speaker identification functionality
-    const identifySpeakersBtn = document.getElementById('identifySpeakersBtn');
-
-    // Add this function after the existing code
     async function identifySpeakers() {
         if (!currentTranscriptData) return;
 
@@ -528,6 +525,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const data = await response.json();
+            console.log('Speaker identification response:', data);
+
+            if (!data.segments || !Array.isArray(data.segments)) {
+                throw new Error('Invalid response format from speaker identification');
+            }
 
             // Update transcript data with speaker information
             currentTranscriptData = currentTranscriptData.map((entry, index) => ({
@@ -539,6 +541,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showTranscript(currentTranscriptData);
 
         } catch (err) {
+            console.error('Speaker identification error:', err);
             showError('Failed to identify speakers: ' + err.message);
         } finally {
             // Reset button state
@@ -548,5 +551,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Add event listener for the identify speakers button
-    identifySpeakersBtn.addEventListener('click', identifySpeakers);
+    const identifySpeakersBtn = document.getElementById('identifySpeakersBtn');
+    if (identifySpeakersBtn) {
+        identifySpeakersBtn.addEventListener('click', identifySpeakers);
+    }
 });
