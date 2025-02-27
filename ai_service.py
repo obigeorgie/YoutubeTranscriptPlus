@@ -1,7 +1,7 @@
 import os
-from openai import OpenAI
-import logging
 import json
+import logging
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ class AIService:
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     def identify_speakers(self, transcript_segments):
-        """Identify speakers in transcript segments using OpenAI."""
+        """Enhanced speaker identification with detailed analysis."""
         try:
             # Prepare transcript for analysis
             transcript_text = "\n".join([
@@ -18,17 +18,26 @@ class AIService:
                 for segment in transcript_segments
             ])
 
-            logger.debug(f"Sending transcript for speaker identification, length: {len(transcript_segments)} segments")
+            logger.debug(f"Sending transcript for enhanced speaker identification, length: {len(transcript_segments)} segments")
 
             response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are a transcript speaker identifier. Analyze the transcript and identify different speakers.
-                        Return a JSON object with a 'segments' array where each element matches the input segments and includes:
-                        - speaker_id: string (e.g., 'Host', 'Guest', 'Speaker 1')
-                        Identify speakers based on context, speaking patterns, and conversation flow."""
+                        "content": """You are an expert transcript analyzer specializing in speaker identification.
+                        Analyze the transcript and provide detailed speaker identification with the following:
+
+                        For each segment, return:
+                        1. speaker_id: Unique identifier (e.g., 'Host', 'Guest 1', 'Panelist A')
+                        2. speaker_info: Object containing:
+                           - role: The speaker's role (e.g., 'Host', 'Guest', 'Interviewer')
+                           - characteristics: Notable speaking characteristics
+                           - confidence: Confidence score (0.0-1.0) for this identification
+                        3. context: Speaking context or relationship to other speakers
+
+                        Return a JSON object with a 'segments' array where each element includes these details.
+                        Use conversation flow, topic changes, and speaking patterns for identification."""
                     },
                     {"role": "user", "content": f"Here's the transcript:\n\n{transcript_text}"}
                 ],
@@ -37,26 +46,33 @@ class AIService:
 
             # Parse the response
             result = json.loads(response.choices[0].message.content)
-            logger.debug(f"Received speaker identification result: {result}")
+            logger.debug(f"Received enhanced speaker identification result: {result}")
 
-            # Ensure we have a segments array with speaker_id for each segment
+            # Process and format the segments
             segments = []
             for i, original_segment in enumerate(transcript_segments):
-                speaker_id = (
-                    result.get('segments', [])[i].get('speaker_id', f'Speaker {i % 2 + 1}')
-                    if i < len(result.get('segments', []))
-                    else f'Speaker {i % 2 + 1}'
-                )
+                # Get speaker details from AI response or create default
+                speaker_data = result.get('segments', [])[i] if i < len(result.get('segments', [])) else {}
+
+                # Create enhanced speaker information
+                speaker_info = speaker_data.get('speaker_info', {
+                    'role': 'Unknown',
+                    'characteristics': '',
+                    'confidence': 0.5
+                })
+
                 segments.append({
                     'start': original_segment['start'],
                     'text': original_segment['text'],
-                    'speaker_id': speaker_id
+                    'speaker_id': speaker_data.get('speaker_id', f'Speaker {i % 2 + 1}'),
+                    'speaker_info': speaker_info,
+                    'context': speaker_data.get('context', '')
                 })
 
             return segments
 
         except Exception as e:
-            logger.error(f"Error identifying speakers: {e}")
+            logger.error(f"Error in enhanced speaker identification: {e}")
             raise
 
     def summarize_transcript(self, transcript_text):

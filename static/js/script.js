@@ -38,15 +38,46 @@ document.addEventListener('DOMContentLoaded', function() {
         const seconds = Math.floor(timestamp % 60);
         const text = entry.text.trim();
 
-        // Add speaker label if available
-        const speakerLabel = entry.speaker ? `<span class="speaker-label">${entry.speaker}</span>` : '';
+        // Generate confidence indicator class
+        let confidenceClass = 'confidence-medium';
+        if (entry.speaker_info?.confidence >= 0.8) {
+            confidenceClass = 'confidence-high';
+        } else if (entry.speaker_info?.confidence < 0.4) {
+            confidenceClass = 'confidence-low';
+        }
+
+        // Format speaker label with enhanced information
+        const speakerLabel = entry.speaker_id ? `
+            <div class="speaker-label">
+                ${entry.speaker_id}
+                ${entry.speaker_info?.role ? `
+                    <span class="speaker-info">(${entry.speaker_info.role})</span>
+                ` : ''}
+                <span class="confidence-indicator ${confidenceClass}" 
+                      title="Confidence: ${Math.round(entry.speaker_info?.confidence * 100)}%"></span>
+            </div>
+        ` : '';
+
+        // Add characteristics if available
+        const characteristics = entry.speaker_info?.characteristics ? `
+            <span class="speaker-characteristic">${entry.speaker_info.characteristics}</span>
+        ` : '';
+
+        // Add context if available
+        const context = entry.context ? `
+            <div class="speaker-context">${entry.context}</div>
+        ` : '';
 
         return `<div class="transcript-entry">
             <button class="timestamp-btn btn btn-link" data-time="${timestamp}">
                 [${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]
             </button>
             ${speakerLabel}
-            <span class="transcript-text">${text}</span>
+            <span class="transcript-text">
+                ${text}
+                ${characteristics}
+            </span>
+            ${context}
             <button class="copy-btn" title="Copy text" data-text="${text.replace(/"/g, '&quot;')}">
                 📋
             </button>
@@ -510,7 +541,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             // Show loading state
             identifySpeakersBtn.disabled = true;
-            identifySpeakersBtn.innerHTML = '🔄 Analyzing...';
+            identifySpeakersBtn.innerHTML = '🔄 Analyzing Speakers...';
 
             const formData = new FormData();
             formData.append('transcript_data', JSON.stringify(currentTranscriptData));
@@ -531,10 +562,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Invalid response format from speaker identification');
             }
 
-            // Update transcript data with speaker information
+            // Update transcript data with enhanced speaker information
             currentTranscriptData = currentTranscriptData.map((entry, index) => ({
                 ...entry,
-                speaker: data.segments[index]?.speaker_id || ''
+                speaker_id: data.segments[index]?.speaker_id || '',
+                speaker_info: data.segments[index]?.speaker_info || {},
+                context: data.segments[index]?.context || ''
             }));
 
             // Refresh transcript display
