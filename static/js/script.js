@@ -273,7 +273,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.original_language) {
                 document.getElementById('originalLanguage').textContent = data.original_language.name;
                 // Detect and show the language
-                document.getElementById('detectedLanguage').textContent = 
+                document.getElementById('detectedLanguage').textContent =
                     `Detected: ${data.original_language.name}`;
             }
 
@@ -326,86 +326,152 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 
-    // Update download handling
+    // Add new handlers for export and sharing functionality
     document.querySelectorAll('.dropdown-menu .dropdown-item').forEach(item => {
         item.addEventListener('click', async function() {
             const format = this.dataset.format;
+            const action = this.dataset.action;
+
             if (!currentTranscriptData) return;
 
-            const formData = new FormData();
-            formData.append('transcript_data', JSON.stringify(currentTranscriptData));
-            formData.append('format', format);
+            if (format) {
+                // Handle file export
+                const formData = new FormData();
+                formData.append('transcript_data', JSON.stringify(currentTranscriptData));
+                formData.append('format', format);
+                formData.append('video_id', extractVideoId(currentVideoUrl));
+                formData.append('title', 'YouTube Transcript');
 
-            try {
-                const response = await fetch('/download-transcript', {
-                    method: 'POST',
-                    body: formData
-                });
+                try {
+                    const response = await fetch('/export-transcript', {
+                        method: 'POST',
+                        body: formData
+                    });
 
-                if (!response.ok) {
-                    throw new Error('Failed to download transcript');
+                    if (!response.ok) {
+                        throw new Error('Failed to export transcript');
+                    }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `transcript.${format}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } catch (err) {
+                    showError(err.message);
                 }
-
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `transcript.${format}`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-            } catch (err) {
-                showError(err.message);
+            } else if (action) {
+                // Handle sharing actions
+                switch (action) {
+                    case 'copy-link':
+                        handleShareLink();
+                        break;
+                    case 'copy-formatted':
+                        handleCopyFormatted();
+                        break;
+                    case 'email':
+                        handleEmailShare();
+                        break;
+                }
             }
         });
     });
 
-    // YouTube Player API integration
-    window.onYouTubeIframeAPIReady = function() {
-        console.log('YouTube API Ready');
-    };
+    // Function to handle share link generation
+    async function handleShareLink() {
+        try {
+            const videoId = extractVideoId(currentVideoUrl);
+            const formData = new FormData();
+            formData.append('video_id', videoId);
 
-    function loadYouTubePlayer(videoId) {
-        if (!videoId) {
-            console.error('No video ID provided');
-            return;
-        }
+            const response = await fetch('/generate-share-link', {
+                method: 'POST',
+                body: formData
+            });
 
-        if (!window.YT) {
-            const tag = document.createElement('script');
-            tag.src = 'https://www.youtube.com/iframe_api';
-            const firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-        } else {
-            createPlayer(videoId);
-        }
-    }
-
-    function createPlayer(videoId) {
-        window.player = new YT.Player('player', {
-            height: '360',
-            width: '640',
-            videoId: videoId,
-            playerVars: {
-                'playsinline': 1,
-                'enablejsapi': 1
-            },
-            events: {
-                'onReady': onPlayerReady,
-                'onError': onPlayerError
+            if (!response.ok) {
+                throw new Error('Failed to generate share link');
             }
-        });
+
+            const data = await response.json();
+            const shareModal = new bootstrap.Modal(document.getElementById('shareModal'));
+            document.getElementById('shareLink').value = data.share_link;
+            shareModal.show();
+        } catch (err) {
+            showError(err.message);
+        }
     }
 
-    function onPlayerReady(event) {
-        console.log('Player ready');
+    // Function to handle formatted text copy
+    function handleCopyFormatted() {
+        if (!currentTranscriptData) return;
+
+        const formattedText = currentTranscriptData.map(entry => {
+            const minutes = Math.floor(entry.start / 60);
+            const seconds = Math.floor(entry.start % 60);
+            const timestamp = `[${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]`;
+            const speaker = entry.speaker_id ? `${entry.speaker_id}: ` : '';
+            return `${timestamp} ${speaker}${entry.text}`;
+        }).join('\n\n');
+
+        navigator.clipboard.writeText(formattedText)
+            .then(() => {
+                showToast('Formatted transcript copied to clipboard! ✓');
+            })
+            .catch(err => {
+                showError('Failed to copy transcript');
+            });
     }
 
-    function onPlayerError(event) {
-        console.error('Player error:', event.data);
-        showError('Error loading YouTube video');
+    // Function to handle email sharing
+    function handleEmailShare() {
+        if (!currentTranscriptData) return;
+
+        const videoId = extractVideoId(currentVideoUrl);
+        const subject = encodeURIComponent('YouTube Video Transcript');
+        const body = encodeURIComponent(`Check out this transcript:\n\nhttps://youtu.be/${videoId}`);
+
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
     }
+
+    // Add copy button handler for share link
+    document.getElementById('copyShareLink')?.addEventListener('click', function() {
+        const shareLink = document.getElementById('shareLink');
+        shareLink.select();
+        navigator.clipboard.writeText(shareLink.value)
+            .then(() => {
+                this.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    this.textContent = '📋 Copy';
+                }, 2000);
+            })
+            .catch(err => {
+                showError('Failed to copy link');
+            });
+    });
+
+    // Add social sharing handlers
+    document.getElementById('shareTwitter')?.addEventListener('click', function() {
+        const url = encodeURIComponent(document.getElementById('shareLink').value);
+        const text = encodeURIComponent('Check out this YouTube video transcript!');
+        window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
+    });
+
+    document.getElementById('shareLinkedIn')?.addEventListener('click', function() {
+        const url = encodeURIComponent(document.getElementById('shareLink').value);
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank');
+    });
+
+    document.getElementById('shareEmail')?.addEventListener('click', function() {
+        const url = document.getElementById('shareLink').value;
+        const subject = encodeURIComponent('YouTube Video Transcript');
+        const body = encodeURIComponent(`Check out this transcript:\n\n${url}`);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    });
 
     // Word Cloud functionality
     const wordCloudBtn = document.getElementById('wordCloudBtn');
@@ -726,4 +792,49 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    // YouTube Player API integration
+    window.onYouTubeIframeAPIReady = function() {
+        console.log('YouTube API Ready');
+    };
+
+    function loadYouTubePlayer(videoId) {
+        if (!videoId) {
+            console.error('No video ID provided');
+            return;
+        }
+
+        if (!window.YT) {
+            const tag = document.createElement('script');
+            tag.src = 'https://www.youtube.com/iframe_api';
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        } else {
+            createPlayer(videoId);
+        }
+    }
+
+    function createPlayer(videoId) {
+        window.player = new YT.Player('player', {
+            height: '360',
+            width: '640',
+            videoId: videoId,
+            playerVars: {
+                'playsinline': 1,
+                'enablejsapi': 1
+            },
+            events: {
+                'onReady': onPlayerReady,
+                'onError': onPlayerError
+            }
+        });
+    }
+
+    function onPlayerReady(event) {
+        console.log('Player ready');
+    }
+
+    function onPlayerError(event) {
+        console.error('Player error:', event.data);
+        showError('Error loading YouTube video');
+    }
 });

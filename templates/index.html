@@ -92,12 +92,21 @@
                                     </div>
                                     <div class="btn-group">
                                         <button class="btn btn-secondary dropdown-toggle" type="button" id="downloadBtn" data-bs-toggle="dropdown" aria-expanded="false">
-                                            💾 Download
+                                            💾 Export & Share
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><h6 class="dropdown-header">Download</h6></li>
                                             <li><button class="dropdown-item" data-format="txt">📄 Plain Text (.txt)</button></li>
                                             <li><button class="dropdown-item" data-format="srt">🎬 SubRip (.srt)</button></li>
                                             <li><button class="dropdown-item" data-format="vtt">🎥 WebVTT (.vtt)</button></li>
+                                            <li><button class="dropdown-item" data-format="pdf">📑 PDF Document</button></li>
+                                            <li><button class="dropdown-item" data-format="docx">📝 Word Document</button></li>
+                                            <li><button class="dropdown-item" data-format="html">🌐 Web Page</button></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><h6 class="dropdown-header">Share</h6></li>
+                                            <li><button class="dropdown-item" data-action="copy-link">🔗 Copy Shareable Link</button></li>
+                                            <li><button class="dropdown-item" data-action="copy-formatted">📋 Copy Formatted Text</button></li>
+                                            <li><button class="dropdown-item" data-action="email">📧 Share via Email</button></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -162,6 +171,42 @@
                         <p class="mt-2">🔄 Analyzing transcript...</p>
                     </div>
                     <div id="aiAnalysisContent" class="p-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Share Success Modal -->
+    <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="shareModalLabel">🔗 Share Transcript</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="share-link-container">
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="shareLink" readonly>
+                            <button class="btn btn-outline-secondary" type="button" id="copyShareLink">
+                                📋 Copy
+                            </button>
+                        </div>
+                        <div class="share-options mt-3">
+                            <p class="text-muted mb-2">Or share directly via:</p>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-primary" id="shareEmail">
+                                    📧 Email
+                                </button>
+                                <button class="btn btn-outline-info" id="shareTwitter">
+                                    🐦 Twitter
+                                </button>
+                                <button class="btn btn-outline-primary" id="shareLinkedIn">
+                                    💼 LinkedIn
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

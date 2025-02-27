@@ -3,7 +3,7 @@ import re
 import json
 import nltk
 from urllib.parse import urlparse, parse_qs
-from flask import Flask, render_template, request, jsonify, send_file, session
+from flask import Flask, render_template, request, jsonify, send_file, session, make_response
 import youtube_transcript_api
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 import logging
@@ -431,7 +431,7 @@ def generate_wordcloud_route():
     return generate_wordcloud()
 
 
-@app.route('/analyze-transcript', methods=['POST']) # Added route
+@app.route('/analyze-transcript', methods=['POST'])
 def analyze_transcript():
     try:
         transcript_data = request.form.get('transcript_data', '')
@@ -465,7 +465,6 @@ def analyze_transcript():
         logger.error(f"Error in analyze_transcript: {e}")
         return jsonify({'error': 'Failed to process request'}), 500
 
-# Add this new route after the existing transcript routes
 @app.route('/identify-speakers', methods=['POST'])
 def identify_speakers():
     try:
@@ -490,6 +489,216 @@ def identify_speakers():
     except Exception as e:
         logger.error(f"Error in identify_speakers route: {e}")
         return jsonify({'error': 'Failed to process request'}), 500
+
+@app.route('/export-transcript', methods=['POST'])
+def export_transcript():
+    try:
+        transcript_data = request.form.get('transcript_data', '')
+        format_type = request.form.get('format', 'txt')  # Default to txt if not specified
+        video_id = request.form.get('video_id', '')
+        title = request.form.get('title', 'Transcript')
+
+        if not transcript_data:
+            logger.warning("No transcript provided for export")
+            return jsonify({'error': 'No transcript to export'}), 400
+
+        try:
+            # Parse the transcript data from JSON string
+            transcript_entries = json.loads(transcript_data)
+        except json.JSONDecodeError:
+            transcript_entries = None
+
+        if transcript_entries and isinstance(transcript_entries, list):
+            # Generate formatted content based on the requested format
+            if format_type == 'srt':
+                content = generate_srt(transcript_entries)
+                filename = f'transcript_{video_id}.srt'
+                mimetype = 'text/plain'
+            elif format_type == 'vtt':
+                content = generate_vtt(transcript_entries)
+                filename = f'transcript_{video_id}.vtt'
+                mimetype = 'text/plain'
+            elif format_type == 'txt':
+                content = generate_txt(transcript_entries)
+                filename = f'transcript_{video_id}.txt'
+                mimetype = 'text/plain'
+            elif format_type == 'html':
+                content = generate_html(transcript_entries, title)
+                filename = f'transcript_{video_id}.html'
+                mimetype = 'text/html'
+            elif format_type == 'pdf':
+                pdf_bytes = generate_pdf(transcript_entries, title)
+                return send_file(
+                    io.BytesIO(pdf_bytes),
+                    mimetype='application/pdf',
+                    as_attachment=True,
+                    download_name=f'transcript_{video_id}.pdf'
+                )
+            elif format_type == 'docx':
+                docx_bytes = generate_docx(transcript_entries, title)
+                return send_file(
+                    io.BytesIO(docx_bytes),
+                    mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    as_attachment=True,
+                    download_name=f'transcript_{video_id}.docx'
+                )
+            else:
+                return jsonify({'error': 'Unsupported format'}), 400
+        else:
+            content = transcript_data
+            filename = f'transcript_{video_id}.txt'
+            mimetype = 'text/plain'
+
+        # Send the file
+        response = make_response(content)
+        response.headers['Content-Type'] = mimetype
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        return response
+
+    except Exception as e:
+        logger.error(f"Error exporting transcript: {str(e)}")
+        return jsonify({'error': 'Failed to export transcript'}), 500
+
+def generate_html(transcript_entries, title):
+    """Generate HTML format from transcript entries."""
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{title}</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; margin: 2rem; }}
+            .transcript-entry {{ margin-bottom: 1rem; }}
+            .timestamp {{ color: #666; font-family: monospace; }}
+            .speaker {{ font-weight: bold; color: #2196F3; }}
+        </style>
+    </head>
+    <body>
+        <h1>{title}</h1>
+        <div class="transcript">
+    """
+
+    for entry in transcript_entries:
+        minutes = int(entry['start'] // 60)
+        seconds = int(entry['start'] % 60)
+        timestamp = f"{minutes:02d}:{seconds:02d}"
+
+        speaker_html = f'<span class="speaker">{entry["speaker_id"]}: </span>' if 'speaker_id' in entry else ''
+
+        html_content += f"""
+            <div class="transcript-entry">
+                <span class="timestamp">[{timestamp}]</span>
+                {speaker_html}
+                <span class="text">{entry['text']}</span>
+            </div>
+        """
+
+    html_content += """
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
+
+def generate_pdf(transcript_entries, title):
+    """Generate PDF format from transcript entries."""
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from io import BytesIO
+
+        # Create PDF buffer
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+
+        # Create custom styles
+        styles.add(ParagraphStyle(
+            name='TranscriptEntry',
+            parent=styles['Normal'],
+            spaceAfter=10,
+            leftIndent=20
+        ))
+
+        # Build PDF content
+        content = []
+        content.append(Paragraph(title, styles['Title']))
+        content.append(Spacer(1, 12))
+
+        for entry in transcript_entries:
+            minutes = int(entry['start'] // 60)
+            seconds = int(entry['start'] % 60)
+            timestamp = f"{minutes:02d}:{seconds:02d}"
+
+            speaker_text = f"{entry['speaker_id']}: " if 'speaker_id' in entry else ''
+            text = f"[{timestamp}] {speaker_text}{entry['text']}"
+
+            content.append(Paragraph(text, styles['TranscriptEntry']))
+
+        # Build PDF
+        doc.build(content)
+        return buffer.getvalue()
+
+    except Exception as e:
+        logger.error(f"Error generating PDF: {str(e)}")
+        raise
+
+def generate_docx(transcript_entries, title):
+    """Generate DOCX format from transcript entries."""
+    try:
+        from docx import Document
+        from docx.shared import Pt
+        from io import BytesIO
+
+        # Create document
+        doc = Document()
+        doc.add_heading(title, 0)
+
+        # Add transcript entries
+        for entry in transcript_entries:
+            minutes = int(entry['start'] // 60)
+            seconds = int(entry['start'] % 60)
+            timestamp = f"{minutes:02d}:{seconds:02d}"
+
+            speaker_text = f"{entry['speaker_id']}: " if 'speaker_id' in entry else ''
+            text = f"[{timestamp}] {speaker_text}{entry['text']}"
+
+            paragraph = doc.add_paragraph(text)
+            paragraph.style.font.size = Pt(11)
+
+        # Save to buffer
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    except Exception as e:
+        logger.error(f"Error generating DOCX: {str(e)}")
+        raise
+
+@app.route('/generate-share-link', methods=['POST'])
+def generate_share_link():
+    try:
+        video_id = request.form.get('video_id', '')
+        timestamp = request.form.get('timestamp', '')
+
+        if not video_id:
+            return jsonify({'error': 'No video ID provided'}), 400
+
+        # Generate a shareable YouTube link
+        share_link = f'https://youtu.be/{video_id}'
+        if timestamp:
+            share_link += f'?t={int(float(timestamp))}'
+
+        return jsonify({'share_link': share_link})
+
+    except Exception as e:
+        logger.error(f"Error generating share link: {str(e)}")
+        return jsonify({'error': 'Failed to generate share link'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
