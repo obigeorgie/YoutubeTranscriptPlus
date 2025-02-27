@@ -37,10 +37,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const minutes = Math.floor(timestamp / 60);
         const seconds = Math.floor(timestamp % 60);
         const text = entry.text.trim();
+
+        // Add speaker label if available
+        const speakerLabel = entry.speaker ? `<span class="speaker-label">${entry.speaker}</span>` : '';
+
         return `<div class="transcript-entry">
             <button class="timestamp-btn btn btn-link" data-time="${timestamp}">
                 [${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]
             </button>
+            ${speakerLabel}
             <span class="transcript-text">${text}</span>
             <button class="copy-btn" title="Copy text" data-text="${text.replace(/"/g, '&quot;')}">
                 📋
@@ -497,4 +502,51 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         }
     });
+
+    // Add speaker identification functionality
+    const identifySpeakersBtn = document.getElementById('identifySpeakersBtn');
+
+    // Add this function after the existing code
+    async function identifySpeakers() {
+        if (!currentTranscriptData) return;
+
+        try {
+            // Show loading state
+            identifySpeakersBtn.disabled = true;
+            identifySpeakersBtn.innerHTML = '🔄 Analyzing...';
+
+            const formData = new FormData();
+            formData.append('transcript_data', JSON.stringify(currentTranscriptData));
+
+            const response = await fetch('/identify-speakers', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to identify speakers');
+            }
+
+            const data = await response.json();
+
+            // Update transcript data with speaker information
+            currentTranscriptData = currentTranscriptData.map((entry, index) => ({
+                ...entry,
+                speaker: data.segments[index]?.speaker_id || ''
+            }));
+
+            // Refresh transcript display
+            showTranscript(currentTranscriptData);
+
+        } catch (err) {
+            showError('Failed to identify speakers: ' + err.message);
+        } finally {
+            // Reset button state
+            identifySpeakersBtn.disabled = false;
+            identifySpeakersBtn.innerHTML = '👥 Identify Speakers';
+        }
+    }
+
+    // Add event listener for the identify speakers button
+    identifySpeakersBtn.addEventListener('click', identifySpeakers);
 });

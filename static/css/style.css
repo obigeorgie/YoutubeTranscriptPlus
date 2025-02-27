@@ -286,3 +286,21 @@ pre {
 .btn .fa {
     font-size: 1.1em;
 }
+
+/* Add styles for speaker labels */
+.speaker-label {
+    background: var(--bs-info);
+    color: var(--bs-dark);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 500;
+    margin-right: 0.75rem;
+    opacity: 0.8;
+    transition: all 0.2s ease;
+}
+
+.transcript-entry:hover .speaker-label {
+    opacity: 1;
+    transform: translateY(-1px);
+}

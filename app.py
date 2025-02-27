@@ -228,10 +228,15 @@ def generate_srt(transcript_entries):
         else:
             end_time = format_timestamp_srt(entry['start'] + entry.get('duration', 3))
 
+        # Include speaker if available
+        text = entry['text'].strip()
+        if 'speaker' in entry:
+            text = f"{entry['speaker']}: {text}"
+
         srt_content.extend([
             str(i),
             f"{start_time} --> {end_time}",
-            entry['text'].strip(),
+            text,
             ""  # Empty line between entries
         ])
     return '\n'.join(srt_content)
@@ -247,9 +252,14 @@ def generate_vtt(transcript_entries):
         else:
             end_time = format_timestamp_vtt(entry['start'] + entry.get('duration', 3))
 
+        # Include speaker if available
+        text = entry['text'].strip()
+        if 'speaker' in entry:
+            text = f"{entry['speaker']}: {text}"
+
         vtt_content.extend([
             f"{start_time} --> {end_time}",
-            entry['text'].strip(),
+            text,
             ""  # Empty line between entries
         ])
     return '\n'.join(vtt_content)
@@ -419,6 +429,32 @@ def analyze_transcript():
 
     except Exception as e:
         logger.error(f"Error in analyze_transcript: {e}")
+        return jsonify({'error': 'Failed to process request'}), 500
+
+# Add this new route after the existing transcript routes
+@app.route('/identify-speakers', methods=['POST'])
+def identify_speakers():
+    try:
+        transcript_data = request.form.get('transcript_data', '')
+
+        if not transcript_data:
+            return jsonify({'error': 'No transcript data provided'}), 400
+
+        try:
+            transcript_segments = json.loads(transcript_data)
+        except json.JSONDecodeError:
+            return jsonify({'error': 'Invalid transcript data format'}), 400
+
+        try:
+            # Use AI service to identify speakers
+            identified_segments = ai_service.identify_speakers(transcript_segments)
+            return jsonify({'segments': identified_segments})
+        except Exception as e:
+            logger.error(f"Error in speaker identification: {e}")
+            return jsonify({'error': 'Failed to identify speakers'}), 500
+
+    except Exception as e:
+        logger.error(f"Error in identify_speakers route: {e}")
         return jsonify({'error': 'Failed to process request'}), 500
 
 if __name__ == '__main__':

@@ -1,12 +1,47 @@
 import os
 from openai import OpenAI
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+    def identify_speakers(self, transcript_segments):
+        """Identify speakers in transcript segments using OpenAI."""
+        try:
+            # Prepare transcript for analysis
+            transcript_text = "\n".join([
+                f"[{segment['start']:.2f}s]: {segment['text']}"
+                for segment in transcript_segments[:50]  # Process first 50 segments for quick analysis
+            ])
+
+            response = self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Analyze this transcript and identify different speakers. "
+                        "Return a JSON array where each element contains: "
+                        "1. speaker_id (e.g., 'Speaker 1', 'Host', 'Guest') "
+                        "2. timestamp "
+                        "3. text "
+                        "Base your detection on speaking patterns, context, and conversation flow."
+                    },
+                    {"role": "user", "content": f"Here's the transcript:\n\n{transcript_text}"}
+                ],
+                response_format={"type": "json_object"}
+            )
+
+            # Parse the response
+            result = json.loads(response.choices[0].message.content)
+            return result.get('segments', [])
+
+        except Exception as e:
+            logger.error(f"Error identifying speakers: {e}")
+            raise
 
     def summarize_transcript(self, transcript_text):
         """Generate a concise summary of the transcript."""
