@@ -1,6 +1,6 @@
 # YTTP - YouTube Transcript Plus
 
-Canonical site: https://youtubetranscriptplus.com/
+ Canonical site: https://youtubetranscriptplus.com/
 
 YTTP - YouTube Transcript Plus is a minimal Next.js 15 app for pasting a YouTube URL, fetching the transcript, and generating a quick summary.
 
@@ -12,13 +12,13 @@ YTTP - YouTube Transcript Plus is a minimal Next.js 15 app for pasting a YouTube
 - Simple extractive summary for a quick overview
 - Vercel-ready environment setup
 
-## Repository
+This project is kept under one GitHub repository:
 
 This project is kept under one GitHub repository:
 
 ```text
-https://github.com/obigeorgie/YoutubeTranscriptPlus.git
-```
+```text
+https://github.com/obigeorgie/YoutubeTranscriptPlus.git```
 
 ## Environment
 
