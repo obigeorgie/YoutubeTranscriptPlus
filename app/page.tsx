@@ -24,7 +24,7 @@ export default async function HomePage() {
       ) : (
         <section className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur">
           <h2 className="text-2xl font-semibold">Sign in to continue</h2>
-          <p className="mt-3 text-white/70">Use GitHub login to unlock the transcript tool.</p>
+          <p className="mt-3 text-white/70">Use the demo password to unlock the transcript tool.</p>
         </section>
       )}
     </main>
