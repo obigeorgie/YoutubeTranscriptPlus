@@ -1,0 +1,7 @@
+Flask
+youtube_transcript_api
+nltk
+wordcloud
+openai
+reportlab
+python-docx
