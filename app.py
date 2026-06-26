@@ -14,8 +14,7 @@ from nltk.tokenize import word_tokenize
 from ai_service import AIService
 
 # Download NLTK data to /tmp
-import nltk
-import os
+
 NLTK_DATA = '/tmp/nltk_data'
 nltk.data.path = [NLTK_DATA]
 nltk.download('punkt', download_dir=NLTK_DATA)

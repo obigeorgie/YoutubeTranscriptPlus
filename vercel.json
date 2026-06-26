@@ -3,10 +3,14 @@
     {
       "src": "app.py",
       "use": "@vercel/python",
-      "config": { "pythonVersion": "3.9" }
+      "config": { "maxLambdaSize": "15mb", "runtime": "python3.11" }
     }
   ],
   "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
     {
       "src": "/(.*)",
       "dest": "app.py"
