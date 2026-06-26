@@ -5,3 +5,4 @@ wordcloud
 openai
 reportlab
 python-docx
+google-generativeai
