@@ -13,10 +13,23 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from ai_service import AIService
 
-# Download required NLTK data
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('punkt_tab')
+# Download required NLTK data to a writable directory in the serverless environment
+NLTK_DATA_PATH = '/tmp/nltk_data'
+if not os.path.exists(NLTK_DATA_PATH):
+    os.makedirs(NLTK_DATA_PATH)
+nltk.data.path.append(NLTK_DATA_PATH)
+
+# List of NLTK packages to download
+NLTK_PACKAGES = ['punkt', 'stopwords']
+for package in NLTK_PACKAGES:
+    try:
+        # A more robust check for different package types
+        if package == 'punkt':
+             nltk.data.find(f'tokenizers/{package}')
+        elif package == 'stopwords':
+             nltk.data.find(f'corpora/{package}')
+    except LookupError:
+        nltk.download(package, download_dir=NLTK_DATA_PATH)
 
 # Configure logging
 logging.basicConfig(
